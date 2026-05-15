@@ -104,7 +104,13 @@ class ResourceMonitor extends EventEmitter {
     }
     this.prevCpuSamples = this.sampleCpu();
     this.timer = setInterval(() => {
-      this.poll();
+      // Fault isolation: a single poll failure (e.g. a throwing snapshot listener) must
+      // not stop the monitor — log and continue so the ring buffer keeps filling.
+      try {
+        this.poll();
+      } catch (err) {
+        console.error(`[resource-monitor] poll error: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }, POLL_INTERVAL_MS);
   }
 

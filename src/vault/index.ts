@@ -12,6 +12,9 @@ export type { EncryptedPayload, VaultProvider } from './types.js';
 export { encrypt } from './encrypt.js';
 export { decrypt } from './decrypt.js';
 
+// Vault isolation: pushToVault and pullFromVault are called ONLY from the `sync push`
+// and `sync pull` command handlers in cli.ts. They must never be invoked during
+// `ghostpath open` — no code path from the open command reaches these functions.
 export async function pushToVault(
   projectName: string,
   envPath: string,

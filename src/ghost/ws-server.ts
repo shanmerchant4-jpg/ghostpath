@@ -84,7 +84,9 @@ export function startWsServer(): void {
 
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
-      // Port already in use — another ghostpath process owns the WS server, that's fine
+      // Fault isolation: EADDRINUSE means another ghostpath process already owns the WS
+      // server — that is fine. Reset wss to null so the next call to startWsServer() sees
+      // a clean state and can retry without hitting the `if (wss !== null) return` guard.
       wss = null;
       return;
     }
@@ -95,6 +97,8 @@ export function startWsServer(): void {
     });
   });
 
+  // wss is assigned after the error handler so that if EADDRINUSE fires asynchronously
+  // the handler can reliably set wss back to null for a clean retry.
   wss = server;
 
   try {

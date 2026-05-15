@@ -1,6 +1,7 @@
 import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
+import chalk from 'chalk';
 import { GhostError } from '../ghost/errors.js';
 
 function sanitizeName(name: string): string {
@@ -141,6 +142,13 @@ export function createHook(projectName: string): string {
 }
 
 export function getHookArgs(projectName: string): string[] {
-  const filePath = createHook(projectName);
-  return ['--require', filePath];
+  // Fault isolation: if the hook file cannot be written (e.g. tmpdir not writable),
+  // return [] so tracing silently disables itself rather than crashing the boot sequence.
+  try {
+    const filePath = createHook(projectName);
+    return ['--require', filePath];
+  } catch (err) {
+    console.warn(chalk.yellow(`[navigator] hook write failed — tracing disabled: ${err instanceof Error ? err.message : String(err)}`));
+    return [];
+  }
 }

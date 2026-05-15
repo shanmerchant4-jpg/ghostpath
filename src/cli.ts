@@ -164,12 +164,27 @@ program
       // Spawn processes — this is the critical 3-second window (CLAUDE.md rule #5).
       const result = await openProject(project, { hookArgs });
 
-      // In-process setup — instant, runs in this long-lived process.
-      startMonitor();
-      startWsServer();
+      // In-process setup — fault-isolated: each layer runs independently.
+      // If one fails it logs a warning but the project processes continue (CLAUDE.md rule #5).
+      try {
+        startMonitor();
+      } catch (err) {
+        // MONITOR_ALREADY_RUNNING is normal when a second project opens in the same process.
+        console.warn(chalk.yellow(`  [warn] resource monitor: ${err instanceof Error ? err.message : String(err)}`));
+      }
+
+      try {
+        startWsServer();
+      } catch (err) {
+        console.warn(chalk.yellow(`  [warn] WebSocket server: ${err instanceof Error ? err.message : String(err)}`));
+      }
 
       if (domain !== undefined && port !== undefined) {
-        await startProxy(domain, port);
+        try {
+          await startProxy(domain, port);
+        } catch (err) {
+          console.warn(chalk.yellow(`  [warn] proxy ${domain}→${port}: ${err instanceof Error ? err.message : String(err)}`));
+        }
       }
 
       spinner.succeed(chalk.green.bold(`${result.projectName} is running`));
