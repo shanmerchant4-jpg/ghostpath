@@ -1,0 +1,14 @@
+{
+  "name": "ghostpath",
+  "domain": "ghostpath.local",
+  "port": 3000,
+  "start": [],
+  "open": [],
+  "models": [],
+  "env": ".env",
+  "trace": false,
+  "resources": {
+    "maxMemoryMB": 2048,
+    "idleKillMinutes": 30
+  }
+}

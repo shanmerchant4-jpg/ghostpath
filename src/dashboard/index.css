@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0d0d0d;
+  --surface: #1a1a1a;
+  --accent: #7c3aed;
+  --text: #e5e5e5;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+textarea {
+  resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+pre {
+  font-family: inherit;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

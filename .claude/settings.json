@@ -1,0 +1,50 @@
+{
+  "enabledMcpServers": [],
+  "env": {},
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "MultiEdit(*)",
+      "NotebookRead(*)",
+      "NotebookEdit(*)"
+    ],
+    "deny": []
+  },
+  "agents": {
+    "enabled": [
+      "cli-developer",
+      "node-specialist",
+      "backend-developer",
+      "frontend-developer",
+      "fullstack-developer",
+      "react-specialist",
+      "typescript-pro",
+      "javascript-pro",
+      "websocket-engineer",
+      "performance-engineer",
+      "performance-monitor",
+      "security-engineer",
+      "security-auditor",
+      "network-engineer",
+      "devops-engineer",
+      "devops-incident-responder",
+      "docker-expert",
+      "qa-expert",
+      "test-automator",
+      "debugger",
+      "error-detective",
+      "error-coordinator",
+      "architect-reviewer",
+      "codebase-orchestrator",
+      "tooling-engineer",
+      "ui-designer",
+      "documentation-engineer",
+      "technical-writer",
+      "git-workflow-manager",
+      "caveman-compress"
+    ]
+  }
+}

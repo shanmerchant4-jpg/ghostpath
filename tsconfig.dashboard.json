@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "noUnusedLocals": false,
+    "declaration": false
+  },
+  "include": [
+    "src/dashboard/**/*",
+    "src/devkit/tools/json.ts",
+    "src/devkit/tools/regex.ts",
+    "src/devkit/tools/diff.ts",
+    "src/devkit/tools/cron.ts",
+    "src/devkit/tools/timestamp.ts",
+    "src/ghost/errors.ts"
+  ]
+}
