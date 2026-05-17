@@ -23,6 +23,8 @@ ghostpath open my-app
   tabs    2 opening...
 ```
 
+![GhostPath in action](./demo.gif)
+
 Two commands. Your dev server is running, your browser tabs are open, your local
 domain is live, and your resource monitor is watching the process — all from a
 single `Ghostfile.json` at your project root.
