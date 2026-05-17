@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GhostPath DevKit</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #161922;
+    --border: #252933;
+    --accent: #7c6af7;
+    --accent-dim: #4a4280;
+    --text: #d4d8e8;
+    --muted: #6b7284;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --cyan: #22d3ee;
+  }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+  }
+
+  header .logo {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  header .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  nav {
+    display: flex;
+    gap: 2px;
+    padding: 8px 16px 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  nav button {
+    padding: 7px 14px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  nav button:hover { color: var(--text); }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  main {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel {
+    display: none;
+    flex: 1;
+    overflow: hidden;
+    padding: 16px;
+    gap: 12px;
+    flex-direction: column;
+  }
+
+  .panel.active { display: flex; }
+
+  .row { display: flex; gap: 12px; flex: 1; overflow: hidden; }
+  .col { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+
+  label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  textarea, input, select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 10px 12px;
+    resize: none;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  textarea:focus, input:focus, select:focus {
+    border-color: var(--accent-dim);
+  }
+
+  textarea { flex: 1; }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  button.btn {
+    padding: 8px 16px;
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  button.btn:hover { opacity: 0.85; }
+  button.btn.secondary { background: var(--border); color: var(--text); }
+
+  .output-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .output {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    overflow: auto;
+    font-size: 13px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .output.ok   { border-color: var(--accent-dim); }
+  .output.err  { border-color: #7f2d2d; color: var(--red); }
+
+  .status {
+    font-size: 11px;
+    color: var(--muted);
+    height: 16px;
+  }
+
+  .status.ok  { color: var(--green); }
+  .status.err { color: var(--red); }
+
+  .diff-line { display: flex; gap: 8px; }
+  .diff-line.added   { color: var(--green); }
+  .diff-line.removed { color: var(--red); }
+  .diff-line.unchanged { color: var(--muted); }
+  .diff-sign { width: 12px; flex-shrink: 0; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .tag.exp  { background: #7f2d2d; color: var(--red); }
+  .tag.ok   { background: #14532d; color: var(--green); }
+  .tag.warn { background: #78350f; color: var(--yellow); }
+
+  .field-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .field-row .field-label {
+    font-size: 11px;
+    color: var(--muted);
+    width: 80px;
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .field-row .field-val {
+    color: var(--text);
+    font-size: 13px;
+    word-break: break-all;
+  }
+
+  input.sm { flex: 0 0 100px; }
+  input.md { flex: 0 0 180px; }
+
+  select { flex: 0 0 auto; width: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">⬡ GhostPath DevKit</span>
+  <span class="subtitle">offline developer utilities · localhost:7070</span>
+</header>
+
+<nav>
+  <button class="active" onclick="switchTab('json')">JSON</button>
+  <button onclick="switchTab('regex')">Regex</button>
+  <button onclick="switchTab('jwt')">JWT</button>
+  <button onclick="switchTab('diff')">Diff</button>
+  <button onclick="switchTab('hash')">Hash / UUID</button>
+  <button onclick="switchTab('timestamp')">Timestamp</button>
+  <button onclick="switchTab('cron')">Cron</button>
+  <button onclick="switchTab('encoder')">Encoder</button>
+</nav>
+
+<main>
+
+<!-- ── JSON ──────────────────────────────────────────────────────── -->
+<div class="panel active" id="panel-json">
+  <div class="controls">
+    <button class="btn" onclick="jsonRun('format')">Format</button>
+    <button class="btn secondary" onclick="jsonRun('minify')">Minify</button>
+    <button class="btn secondary" onclick="jsonRun('validate')">Validate</button>
+    <button class="btn secondary" onclick="jsonRun('ts-types')">→ TS Types</button>
+    <button class="btn secondary" onclick="jsonRun('zod-schema')">→ Zod Schema</button>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>Input JSON</label>
+      <textarea id="json-input" placeholder='{"key": "value"}'></textarea>
+    </div>
+    <div class="col output-wrap">
+      <label>Output</label>
+      <div class="output" id="json-output"></div>
+      <div class="status" id="json-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Regex ─────────────────────────────────────────────────────── -->
+<div class="panel" id="panel-regex">
+  <div class="controls">
+    <input class="md" id="regex-pattern" placeholder="Pattern (e.g. \d+)" />
+    <input class="sm" id="regex-flags" placeholder="Flags (gim)" value="g" />
+    <button class="btn" onclick="regexRun('test')">Test</button>
+    <button class="btn secondary" onclick="regexRun('explain')">Explain</button>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>Test Input</label>
+      <textarea id="regex-input" placeholder="Text to match against..."></textarea>
+    </div>
+    <div class="col output-wrap">
+      <label>Output</label>
+      <div class="output" id="regex-output"></div>
+      <div class="status" id="regex-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── JWT ───────────────────────────────────────────────────────── -->
+<div class="panel" id="panel-jwt">
+  <div class="controls">
+    <button class="btn" onclick="jwtRun()">Decode</button>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>JWT Token</label>
+      <textarea id="jwt-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+    </div>
+    <div class="col output-wrap">
+      <label>Decoded</label>
+      <div class="output" id="jwt-output"></div>
+      <div class="status" id="jwt-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Diff ──────────────────────────────────────────────────────── -->
+<div class="panel" id="panel-diff">
+  <div class="controls">
+    <button class="btn" onclick="diffRun()">Diff</button>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>Original (A)</label>
+      <textarea id="diff-a" placeholder="Original text..."></textarea>
+    </div>
+    <div class="col">
+      <label>Modified (B)</label>
+      <textarea id="diff-b" placeholder="Modified text..."></textarea>
+    </div>
+    <div class="col output-wrap">
+      <label>Diff</label>
+      <div class="output" id="diff-output"></div>
+      <div class="status" id="diff-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Hash / UUID ───────────────────────────────────────────────── -->
+<div class="panel" id="panel-hash">
+  <div class="controls">
+    <select id="hash-algorithm">
+      <option value="sha256">SHA-256</option>
+      <option value="sha512">SHA-512</option>
+      <option value="sha1">SHA-1</option>
+      <option value="md5">MD5</option>
+    </select>
+    <button class="btn" onclick="hashRun()">Hash</button>
+    <button class="btn secondary" onclick="uuidRun('v4')">UUID v4</button>
+    <button class="btn secondary" onclick="uuidRun('v7')">UUID v7</button>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>Input Text</label>
+      <textarea id="hash-input" placeholder="Text to hash..."></textarea>
+    </div>
+    <div class="col output-wrap">
+      <label>Output</label>
+      <div class="output" id="hash-output"></div>
+      <div class="status" id="hash-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Timestamp ─────────────────────────────────────────────────── -->
+<div class="panel" id="panel-timestamp">
+  <div class="controls">
+    <button class="btn" onclick="tsNow()">Now</button>
+    <button class="btn secondary" onclick="tsUnixToHuman()">Unix → ISO</button>
+    <button class="btn secondary" onclick="tsHumanToUnix()">ISO → Unix</button>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>Unix Timestamp</label>
+      <input id="ts-unix" type="number" placeholder="1716825600" />
+      <label style="margin-top:12px">ISO / Human Date</label>
+      <input id="ts-human" type="text" placeholder="2024-05-27T16:00:00Z" />
+    </div>
+    <div class="col output-wrap">
+      <label>Output</label>
+      <div class="output" id="ts-output"></div>
+      <div class="status" id="ts-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Cron ──────────────────────────────────────────────────────── -->
+<div class="panel" id="panel-cron">
+  <div class="controls">
+    <input class="md" id="cron-expr" placeholder="0 9 * * 1-5" value="0 9 * * 1-5" />
+    <button class="btn" onclick="cronExplain()">Explain</button>
+    <button class="btn secondary" onclick="cronNextRuns()">Next 5 Runs</button>
+  </div>
+  <div class="row">
+    <div class="col output-wrap">
+      <label>Output</label>
+      <div class="output" id="cron-output"></div>
+      <div class="status" id="cron-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Encoder ───────────────────────────────────────────────────── -->
+<div class="panel" id="panel-encoder">
+  <div class="controls">
+    <button class="btn" onclick="encRun('base64-encode')">Base64 Encode</button>
+    <button class="btn secondary" onclick="encRun('base64-decode')">Base64 Decode</button>
+    <button class="btn secondary" onclick="encRun('url-encode')">URL Encode</button>
+    <button class="btn secondary" onclick="encRun('url-decode')">URL Decode</button>
+    <button class="btn secondary" onclick="encRun('html-encode')">HTML Encode</button>
+    <button class="btn secondary" onclick="encRun('html-decode')">HTML Decode</button>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label>Input</label>
+      <textarea id="enc-input" placeholder="Text to encode / decode..."></textarea>
+    </div>
+    <div class="col output-wrap">
+      <label>Output</label>
+      <div class="output" id="enc-output"></div>
+      <div class="status" id="enc-status"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach((b, i) => {
+    const tabs = ['json','regex','jwt','diff','hash','timestamp','cron','encoder'];
+    b.classList.toggle('active', tabs[i] === name);
+  });
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ── API helper ───────────────────────────────────────────────────────────────
+async function run(tool, action, params) {
+  const r = await fetch('/api/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tool, action, params }),
+  });
+  return r.json();
+}
+
+function setOutput(outId, statusId, data) {
+  const out = document.getElementById(outId);
+  const st  = document.getElementById(statusId);
+  if (data.error) {
+    out.className = 'output err';
+    out.textContent = data.error + (data.hint ? '\n\nHint: ' + data.hint : '');
+    st.className = 'status err';
+    st.textContent = '✗ error';
+  } else {
+    out.className = 'output ok';
+    if (typeof data.result === 'string') {
+      out.textContent = data.result;
+    } else {
+      out.textContent = JSON.stringify(data.result, null, 2);
+    }
+    st.className = 'status ok';
+    st.textContent = '✓ ok';
+  }
+}
+
+// ── JSON ─────────────────────────────────────────────────────────────────────
+async function jsonRun(action) {
+  const input = document.getElementById('json-input').value;
+  const data = await run('json', action, { input });
+  if (action === 'validate' && !data.error) {
+    const out = document.getElementById('json-output');
+    const st  = document.getElementById('json-status');
+    const ok  = data.result.valid;
+    out.className = 'output ' + (ok ? 'ok' : 'err');
+    out.textContent = ok ? '✓ Valid JSON' : '✗ Invalid JSON\n\n' + (data.result.error || '');
+    st.className = 'status ' + (ok ? 'ok' : 'err');
+    st.textContent = ok ? '✓ valid' : '✗ invalid';
+  } else {
+    setOutput('json-output', 'json-status', data);
+  }
+}
+
+// ── Regex ────────────────────────────────────────────────────────────────────
+async function regexRun(action) {
+  const pattern = document.getElementById('regex-pattern').value;
+  const flags   = document.getElementById('regex-flags').value;
+  const input   = document.getElementById('regex-input').value;
+  const data = await run('regex', action, { pattern, flags, input });
+  const out = document.getElementById('regex-output');
+  const st  = document.getElementById('regex-status');
+  if (data.error) { setOutput('regex-output', 'regex-status', data); return; }
+  if (action === 'explain') {
+    out.className = 'output ok';
+    out.textContent = data.result;
+    st.className = 'status ok'; st.textContent = '✓ ok';
+  } else {
+    const r = data.result;
+    if (!r.isValid) {
+      out.className = 'output err';
+      out.textContent = '✗ Invalid regex\n\n' + (r.error || '');
+      st.className = 'status err'; st.textContent = '✗ invalid';
+      return;
+    }
+    out.className = 'output ok';
+    out.textContent = r.matches.length === 0
+      ? '(no matches)'
+      : r.matches.map((m, i) => `Match ${i + 1}: ${JSON.stringify(m[0])}${m.length > 1 ? '\n  Groups: ' + m.slice(1).map(g => JSON.stringify(g)).join(', ') : ''}`).join('\n');
+    st.className = 'status ok';
+    st.textContent = `✓ ${r.matches.length} match${r.matches.length !== 1 ? 'es' : ''}`;
+  }
+}
+
+// ── JWT ──────────────────────────────────────────────────────────────────────
+async function jwtRun() {
+  const token = document.getElementById('jwt-input').value;
+  const data  = await run('jwt', 'decode', { token });
+  const out   = document.getElementById('jwt-output');
+  const st    = document.getElementById('jwt-status');
+  if (data.error) { setOutput('jwt-output', 'jwt-status', data); return; }
+  const r = data.result;
+  if (r.error) {
+    out.className = 'output err';
+    out.textContent = r.error;
+    st.className = 'status err'; st.textContent = '✗ invalid token';
+    return;
+  }
+  const expTag = r.isExpired
+    ? '<span class="tag exp">EXPIRED</span>'
+    : (r.expiresAt ? '<span class="tag ok">VALID</span>' : '<span class="tag warn">NO EXP</span>');
+  out.className = 'output ok';
+  out.innerHTML =
+    '<div class="field-row"><span class="field-label">Status</span><span class="field-val">' + expTag + (r.expiresAt ? ' &nbsp; expires ' + new Date(r.expiresAt).toISOString() : '') + '</span></div>\n' +
+    '<div class="field-row" style="margin-top:10px"><span class="field-label">Header</span><span class="field-val"><pre>' + JSON.stringify(r.header, null, 2) + '</pre></span></div>\n' +
+    '<div class="field-row" style="margin-top:10px"><span class="field-label">Payload</span><span class="field-val"><pre>' + JSON.stringify(r.payload, null, 2) + '</pre></span></div>';
+  st.className = 'status ok';
+  st.textContent = r.isExpired ? '⚠ expired' : '✓ decoded';
+}
+
+// ── Diff ─────────────────────────────────────────────────────────────────────
+async function diffRun() {
+  const a = document.getElementById('diff-a').value;
+  const b = document.getElementById('diff-b').value;
+  const data = await run('diff', 'diff', { a, b });
+  const out  = document.getElementById('diff-output');
+  const st   = document.getElementById('diff-status');
+  if (data.error) { setOutput('diff-output', 'diff-status', data); return; }
+  const lines = data.result;
+  out.className = 'output ok';
+  out.innerHTML = lines.map(l => {
+    const sign = l.type === 'added' ? '+' : l.type === 'removed' ? '-' : ' ';
+    const cls  = l.type;
+    const safe = l.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `<div class="diff-line ${cls}"><span class="diff-sign">${sign}</span><span>${safe}</span></div>`;
+  }).join('');
+  const added   = lines.filter(l => l.type === 'added').length;
+  const removed = lines.filter(l => l.type === 'removed').length;
+  st.className = 'status ok';
+  st.textContent = `✓ +${added} -${removed}`;
+}
+
+// ── Hash / UUID ───────────────────────────────────────────────────────────────
+async function hashRun() {
+  const input     = document.getElementById('hash-input').value;
+  const algorithm = document.getElementById('hash-algorithm').value;
+  const data = await run('hash', 'hash', { input, algorithm });
+  setOutput('hash-output', 'hash-status', data);
+}
+
+async function uuidRun(version) {
+  const data = await run('hash', 'uuid', { version });
+  const out  = document.getElementById('hash-output');
+  const st   = document.getElementById('hash-status');
+  if (data.error) { setOutput('hash-output', 'hash-status', data); return; }
+  out.className = 'output ok';
+  out.textContent = data.result;
+  st.className = 'status ok';
+  st.textContent = '✓ ' + version;
+}
+
+// ── Timestamp ─────────────────────────────────────────────────────────────────
+async function tsNow() {
+  const data = await run('timestamp', 'now', {});
+  const out  = document.getElementById('ts-output');
+  const st   = document.getElementById('ts-status');
+  if (data.error) { setOutput('ts-output', 'ts-status', data); return; }
+  document.getElementById('ts-unix').value = data.result;
+  out.className = 'output ok';
+  out.textContent = 'Unix: ' + data.result + '\nISO:  ' + new Date(data.result * 1000).toISOString();
+  st.className = 'status ok'; st.textContent = '✓ now';
+}
+
+async function tsUnixToHuman() {
+  const unix = parseInt(document.getElementById('ts-unix').value, 10);
+  const data = await run('timestamp', 'unix-to-human', { unix });
+  setOutput('ts-output', 'ts-status', data);
+}
+
+async function tsHumanToUnix() {
+  const input = document.getElementById('ts-human').value;
+  const data  = await run('timestamp', 'human-to-unix', { input });
+  const out   = document.getElementById('ts-output');
+  const st    = document.getElementById('ts-status');
+  if (data.error) { setOutput('ts-output', 'ts-status', data); return; }
+  document.getElementById('ts-unix').value = data.result;
+  out.className = 'output ok';
+  out.textContent = String(data.result);
+  st.className = 'status ok'; st.textContent = '✓ converted';
+}
+
+// ── Cron ─────────────────────────────────────────────────────────────────────
+async function cronExplain() {
+  const expression = document.getElementById('cron-expr').value;
+  const data = await run('cron', 'explain', { expression });
+  setOutput('cron-output', 'cron-status', data);
+}
+
+async function cronNextRuns() {
+  const expression = document.getElementById('cron-expr').value;
+  const data = await run('cron', 'next-runs', { expression, count: 5 });
+  const out  = document.getElementById('cron-output');
+  const st   = document.getElementById('cron-status');
+  if (data.error) { setOutput('cron-output', 'cron-status', data); return; }
+  out.className = 'output ok';
+  out.textContent = data.result.map((d, i) => `${i + 1}. ${new Date(d).toLocaleString()}`).join('\n');
+  st.className = 'status ok'; st.textContent = '✓ 5 runs computed';
+}
+
+// ── Encoder ───────────────────────────────────────────────────────────────────
+async function encRun(action) {
+  const input = document.getElementById('enc-input').value;
+  const data  = await run('encoder', action, { input });
+  setOutput('enc-output', 'enc-status', data);
+}
+</script>
+</body>
+</html>
