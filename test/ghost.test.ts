@@ -557,13 +557,20 @@ describe('killZombies', () => {
   });
 
   it('non-TTY mode returns early without killing', async () => {
-    // process.stdin.isTTY is undefined in test env → auto-decline path
+    // Force non-TTY: some CI runners expose isTTY=true on a pseudo-TTY, which
+    // would cause inquirer.prompt to hang rather than hitting the early-return guard.
+    Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
+
     const child = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });
     child.unref();
     const pid = child.pid!;
     registerProcess(pid);
 
-    await killZombies([pid], false);
+    try {
+      await killZombies([pid], false);
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });
+    }
 
     // Process should still be alive — we returned early
     let alive = false;
@@ -572,7 +579,7 @@ describe('killZombies', () => {
 
     try { process.kill(pid, 'SIGKILL'); } catch { /* already dead */ }
     unregisterProcess(pid);
-  });
+  }, 15_000);
 
   it('auto mode with dead PID: covers warning loop and killWithGrace catch path', async () => {
     vi.useFakeTimers();

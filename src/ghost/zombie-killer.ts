@@ -95,6 +95,13 @@ export async function killZombies(pids: number[], autoMode: boolean): Promise<vo
   } else {
     process.stdout.write(`\nIdle processes detected: ${pids.join(', ')}\n`);
 
+    // Non-interactive guard: some CI runners set isTTY=true on a pseudo-TTY but
+    // have no human at the keyboard — also check the CI env var as a fallback.
+    if (!process.stdin.isTTY || process.env.CI) {
+      process.stdout.write('Non-interactive mode: skipping kill. Use --auto to kill without prompting.\n');
+      return;
+    }
+
     const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
       {
         type: 'confirm',
