@@ -27,11 +27,11 @@
     "LICENSE"
   ],
   "bin": {
-    "ghostpath": "./dist/cli.js"
+    "ghostpath": "dist/cli.js"
   },
   "scripts": {
     "dev": "tsx watch src/cli.ts",
-    "build": "tsc",
+    "build": "tsc && cp -r src/devkit/public dist/devkit/public",
     "test": "vitest",
     "lint": "eslint src/",
     "dashboard": "vite --config vite.config.dashboard.ts"
@@ -60,6 +60,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/coverage-v8": "^1.6.1",
     "eslint": "^9.0.0",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.0.0",
