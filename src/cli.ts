@@ -37,6 +37,7 @@ const __dirname = path.dirname(__filename);
 const GHOST_DIR = path.join(os.homedir(), '.ghostpath');
 const PROJECTS_PATH = path.join(GHOST_DIR, 'projects.json');
 const CONFIG_PATH = path.join(GHOST_DIR, 'config.json');
+const VAULT_CONFIG_PATH = path.join(GHOST_DIR, 'vault-config.json');
 
 interface ProjectsRegistry {
   projects: Array<{ name: string; path: string }>;
@@ -44,6 +45,12 @@ interface ProjectsRegistry {
 
 interface GhostConfig {
   provider?: 'local' | 'drive' | 'dropbox';
+}
+
+interface VaultConfig {
+  provider: 'local' | 'gdrive' | 'dropbox';
+  gdrive?: { tokenPath: string };
+  dropbox?: { accessToken: string };
 }
 
 // ── Error rendering ──────────────────────────────────────────────────────────
@@ -80,6 +87,22 @@ async function readConfig(): Promise<GhostConfig> {
   }
 }
 
+async function readVaultConfig(): Promise<VaultConfig> {
+  try {
+    const raw = await fs.readFile(VAULT_CONFIG_PATH, 'utf-8');
+    return JSON.parse(raw) as VaultConfig;
+  } catch {
+    // Fall back to legacy config.json provider field.
+    const legacy = await readConfig();
+    return { provider: legacy.provider === 'drive' ? 'gdrive' : (legacy.provider ?? 'local') };
+  }
+}
+
+function vaultProviderName(config: VaultConfig): 'local' | 'drive' | 'dropbox' {
+  if (config.provider === 'gdrive') return 'drive';
+  return config.provider;
+}
+
 // ── CLI definition ───────────────────────────────────────────────────────────
 
 const program = new Command();
@@ -111,14 +134,27 @@ program
 
       const existingIdx = registry.projects.findIndex((p) => p.name === ghostfile.name);
       if (existingIdx !== -1) {
-        const { confirmed } = await inquirer.prompt<{ confirmed: boolean }>([
-          {
-            type: 'confirm',
-            name: 'confirmed',
-            message: `Project "${ghostfile.name}" is already registered. Overwrite?`,
-            default: false,
-          },
-        ]);
+        // Bug fix: inquirer.prompt hangs in non-TTY mode (piped/background stdin).
+        // Auto-decline the overwrite to preserve existing registration.
+        let confirmed: boolean;
+        if (!process.stdin.isTTY) {
+          console.log(
+            chalk.yellow(
+              `Project "${ghostfile.name}" is already registered (non-interactive: skipping overwrite).`,
+            ),
+          );
+          confirmed = false;
+        } else {
+          const answer = await inquirer.prompt<{ confirmed: boolean }>([
+            {
+              type: 'confirm',
+              name: 'confirmed',
+              message: `Project "${ghostfile.name}" is already registered. Overwrite?`,
+              default: false,
+            },
+          ]);
+          confirmed = answer.confirmed;
+        }
         if (!confirmed) {
           console.log(chalk.yellow('Aborted.'));
           return;
@@ -203,6 +239,12 @@ program
       if (ghostfile.trace === true) {
         console.log(`  ${chalk.dim('trace')}   ${chalk.magenta('enabled')}`);
       }
+
+      // Bug fix: startMonitor() (setInterval) and startWsServer() (WS server) keep
+      // this process alive indefinitely. `ghostpath open` must exit within 3 seconds
+      // (CLAUDE.md rule #5) — child processes are detached+unref'd and continue running
+      // independently. The dashboard command owns the long-lived monitor/WS lifecycle.
+      process.exit(0);
     } catch (err) {
       spinner.fail('Failed to boot project');
       renderError(err);
@@ -395,6 +437,15 @@ sync
       const ghostfile = await readGhostfile(process.cwd());
       const envPath = path.join(process.cwd(), ghostfile.env ?? '.env');
 
+      // Bug fix: inquirer.prompt hangs in non-TTY mode; password entry requires interactive terminal.
+      if (!process.stdin.isTTY) {
+        throw new GhostError({
+          code: 'NON_INTERACTIVE',
+          message: 'sync push requires an interactive terminal for password entry',
+          hint: 'Run this command in an interactive terminal session',
+        });
+      }
+
       const { password } = await inquirer.prompt<{ password: string }>([
         {
           type: 'password',
@@ -404,9 +455,8 @@ sync
         },
       ]);
 
-      const config = await readConfig();
-      const providerName = config.provider ?? 'local';
-      const provider = getProvider(providerName);
+      const vaultConfig = await readVaultConfig();
+      const provider = getProvider(vaultProviderName(vaultConfig));
 
       const spinner = ora('Encrypting and uploading...').start();
       await pushToVault(ghostfile.name, envPath, password, provider);
@@ -425,6 +475,15 @@ sync
       const ghostfile = await readGhostfile(process.cwd());
       const envPath = path.join(process.cwd(), ghostfile.env ?? '.env');
 
+      // Bug fix: inquirer.prompt hangs in non-TTY mode; password entry requires interactive terminal.
+      if (!process.stdin.isTTY) {
+        throw new GhostError({
+          code: 'NON_INTERACTIVE',
+          message: 'sync pull requires an interactive terminal for password entry',
+          hint: 'Run this command in an interactive terminal session',
+        });
+      }
+
       const { password } = await inquirer.prompt<{ password: string }>([
         {
           type: 'password',
@@ -434,13 +493,74 @@ sync
         },
       ]);
 
-      const config = await readConfig();
-      const providerName = config.provider ?? 'local';
-      const provider = getProvider(providerName);
+      const vaultConfig = await readVaultConfig();
+      const provider = getProvider(vaultProviderName(vaultConfig));
 
       const spinner = ora('Downloading and decrypting...').start();
       await pullFromVault(ghostfile.name, envPath, password, provider);
       spinner.succeed(`Vault pulled for "${ghostfile.name}" → ${envPath}`);
+    } catch (err) {
+      renderError(err);
+      process.exit(1);
+    }
+  });
+
+sync
+  .command('setup')
+  .description('Configure vault provider for .env sync')
+  .action(async () => {
+    try {
+      if (!process.stdin.isTTY) {
+        throw new GhostError({
+          code: 'NON_INTERACTIVE',
+          message: 'sync setup requires an interactive terminal',
+          hint: 'Run this command in an interactive terminal session',
+        });
+      }
+
+      const { provider } = await inquirer.prompt<{ provider: VaultConfig['provider'] }>([
+        {
+          type: 'list',
+          name: 'provider',
+          message: 'Select vault provider:',
+          choices: [
+            { name: 'Local filesystem', value: 'local' },
+            { name: 'Google Drive', value: 'gdrive' },
+            { name: 'Dropbox', value: 'dropbox' },
+          ],
+        },
+      ]);
+
+      const config: VaultConfig = { provider };
+
+      if (provider === 'gdrive') {
+        const { tokenPath } = await inquirer.prompt<{ tokenPath: string }>([
+          {
+            type: 'input',
+            name: 'tokenPath',
+            message: 'Path to Google credentials JSON file:',
+            default: path.join(GHOST_DIR, 'gdrive-credentials.json'),
+          },
+        ]);
+        config.gdrive = { tokenPath };
+      } else if (provider === 'dropbox') {
+        const { accessToken } = await inquirer.prompt<{ accessToken: string }>([
+          {
+            type: 'password',
+            name: 'accessToken',
+            message: 'Dropbox access token:',
+            mask: '*',
+          },
+        ]);
+        config.dropbox = { accessToken };
+      }
+
+      await fs.mkdir(GHOST_DIR, { recursive: true });
+      await fs.writeFile(VAULT_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+
+      console.log(chalk.green(`✓ Vault configured: ${chalk.cyan(provider)}`));
+      console.log(chalk.dim(`  Saved to ${VAULT_CONFIG_PATH}`));
+      console.log(chalk.dim('\nNext step: Run ghostpath sync push from a project with a .env file'));
     } catch (err) {
       renderError(err);
       process.exit(1);
