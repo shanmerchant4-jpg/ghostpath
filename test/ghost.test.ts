@@ -557,25 +557,17 @@ describe('killZombies', () => {
   });
 
   it('non-TTY mode returns early without killing', async () => {
-    // Uses a dead fake PID and explicitly sets process.env.CI — avoids
-    // spawning a real process and avoids unreliable isTTY manipulation on CI pseudo-TTYs.
     const FAKE_PID = 999_999_996;
     registerProcess(FAKE_PID);
-
     const origCI = process.env['CI'];
     process.env['CI'] = '1';
-
     try {
       await killZombies([FAKE_PID], false);
     } finally {
-      if (origCI === undefined) {
-        delete process.env['CI'];
-      } else {
-        process.env['CI'] = origCI;
-      }
+      if (origCI === undefined) { delete process.env['CI']; }
+      else { process.env['CI'] = origCI; }
       unregisterProcess(FAKE_PID);
     }
-    // Reaching here without timeout proves the non-interactive guard fired.
   });
 
   it('auto mode with dead PID: covers warning loop and killWithGrace catch path', async () => {
